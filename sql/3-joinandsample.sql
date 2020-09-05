@@ -11,12 +11,27 @@ with grouped_fire as (
 -- turn the geometrycollection back into multipolygons
 alter table fire_weather alter column geom type geometry(multipolygon,3310) using st_collectionextract(geom, 3);
 
--- Now we sample the same number of weather days that did not have fire
+-- Create a data set without fires. Need to create the extra columns so we can use Union
 with non_fire_weather as (
-    select count(weather.*)
+    select weather.*
     from weather where id not in (select id from fire_weather)
-) TODO FINISH THIS STATMENT TO SAMPLE THE RIGHT NUMBER OF RECORDS;
+) select non_fire_weather.*, null::date as alarm_date, 0::bigint as numfires, null::text as names, null::geometry(MultiPolygon,3310) as geom, 0 as hasfire into non_fire_weather from non_fire_weather;
 
--- Next table is weather variables with 1 and 0s, no fire information
+-- Next table is all weather variables with 1 and 0s
+select * into alldata from non_fire_weather UNION select * from fire_weather;
 
+
+ ---sampling an equal number of non-fire days
+with count_fire as (
+    select count(*) as thecount from fire_weather
+)
+select a.* into preanalysisdata from count_fire cross join lateral (select * from non_fire_weather tablesample system_rows(count_fire.thecount)) as a;
+
+--create a table that we can now sample from
+select * into analysisdata from preanalysisdata UNION select * from fire_weather
+
+-- create a schema to hold the final data
+create schema final;
 -- Then we create two derivative tables - fire-training and fire-test with 90% and 10% of the data above respectively
+select * into final.analysis from analysisdata tablesample system_rows(2525);
+select * into final.verification  from analysisdata except select * from final.analysis;
