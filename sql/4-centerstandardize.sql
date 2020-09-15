@@ -8,12 +8,13 @@ with summary as (
 )
 select precip, (precip - avg)/stddev from final.analysis, summary;
 
-create or replace function final.initial_center_standardize(table_name text, prefix text, column_names text[])
+create or replace function final.initial_center_standardize(schema_name text, table_name text, prefix text, column_names text[], pkey text)
     returns text as
 $$
 DECLARE
     col text;
     new_col_name text;
+    debug_string text;
 BEGIN
     -- loop through column names
     foreach col in ARRAY column_names
@@ -21,19 +22,22 @@ BEGIN
             -- Create the column
             new_col_name := prefix || col;
             -- EXECUTE starts the statement because we don't want to cache the plan since each iteration of the loop is new SQL
-            EXECUTE format('alter table %I add column %I numeric', table_name, new_col_name);
+            EXECUTE format('alter table %I.%I add column %I numeric', schema_name, table_name, new_col_name);
             raise info 'After adding the column';
 
-
+            debug_string := FORMAT('with summary as ( select avg(%1$I) as avg, stddev(%1$I) as stddev from %3$I.%4$I), ' ||
+                                   'final_select as (%5$I, (%1$I - avg)/stddev as centered from %3$I.%4$I left join summary on true) ' ||
+                                   'update %3$I.%4$I  set %2$I = final_select.centered from final_select where final_select.%5$I =  %3$I.%4$I.%5$I ', col, new_col_name, schema_name, table_name, pkey)::text;
+            raise info ' Here is the string:: %', debug_string;
             -- calculate the data
-            EXECUTE 'insert into $3 ($2) with summary as ( select avg($1), stddev($1) from $3)' ||
-                    'select  ($1 - avg)/stddev from $3, summary;'
-                USING col, new_col_name, table_name;
+            EXECUTE FORMAT('with summary as ( select avg(%1$I) as avg, stddev(%1$I) as stddev from %3$I.%4$I), ' ||
+                           'final_select as (select %5$I, (%1$I - avg)/stddev as centered from %3$I.%4$I left join summary on true) ' ||
+                           'update %3$I.%4$I  set %2$I = final_select.centered from final_select where final_select.%5$I =  %3$I.%4$I.%5$I ', col, new_col_name, schema_name, table_name, pkey);
         END LOOP;
     return 'done';
-END;
+END
 $$ LANGUAGE plpgsql;
 
-select final.initial_center_standardize('final'::text, 'test'::text, 'cs_'::text, array ['precip', 'eto', 'solar', 'rh_max']::text[]);
+select final.initial_center_standardize('final'::text, 'test'::text, 'cs_'::text, array ['precip', 'eto', 'solar', 'rh_max']::text[], 'id'::text);
 
 create table final.test as select * from final.analysis;
