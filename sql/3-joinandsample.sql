@@ -28,10 +28,12 @@ with count_fire as (
 select a.* into preanalysisdata from count_fire cross join lateral (select * from non_fire_weather tablesample system_rows(count_fire.thecount)) as a;
 
 --create a table that we can now sample from
-select * into analysisdata from preanalysisdata UNION select * from fire_weather
+select * into analysisdata from preanalysisdata UNION select * from fire_weather;
 
 -- create a schema to hold the final data
 create schema final;
 -- Then we create two derivative tables - fire-training and fire-test with 90% and 10% of the data above respectively
 select * into final.analysis from analysisdata tablesample system_rows(2525);
 select * into final.verification  from analysisdata except select * from final.analysis;
+
+alter table final.analysis add primary key (id);
