@@ -1,33 +1,10 @@
--- TODO create a table for model parameters
--- include intercept, parameters, and timestamp
-
--- Logistic regression function that puts model parameters into another table for prediction
-CREATE OR REPLACE FUNCTION logistic_graph()
-    RETURNS text as $$
-    require(RPostgreSQL)
-    pg = dbDriver("PostgreSQL")
-    con = dbConnect(pg, user="postgres", password="password",
-                    host="localhost", port=5432, dbname="fire")
-
-    query_statement <- paste("select hasfire, date_time, cs_precip, cs_air_max_temp,",
-                                           "cs_air_min_temp, cs_soil_max_temp, cs_soil_min_temp, cs_solar, cs_eto, cs_rh_max, cs_rh_min, hasfire",
-                                           "from final.analysis")
-    df <- dbGetQuery(con, query_statement)
-
-    logmodel_solar <- glm(hasfire ~ cs_rh_min + cs_air_max_temp + cs_precip + cs_solar, data=df, family = binomial("logit"))
-
-    #TODO insert the values into the model table
-
-    return('Done')
-$$ LANGUAGE 'plr';
-
------ from here on down it's all image work
-
--- create the table to hold the images
-create table plots(
-  id serial primary key,
-  name text,
-  image bytea
+create table plots
+(
+    id    serial not null
+        constraint plots_pkey
+            primary key,
+    name  text,
+    image bytea
 );
 
 CREATE OR REPLACE FUNCTION logistic_graph()
@@ -99,45 +76,4 @@ CREATE OR REPLACE FUNCTION logistic_graph()
 
 $$ LANGUAGE 'plr';
 
-
--- R usually puts some extra information around the bytes for serialization.
--- We don't want those bytes so we call plr_get_raw to avoid them
--- https://access.crunchydata.com/documentation/plr/8.4/#postgresql-support
 insert into plots(name, image)  select 'mypicture', get_image.* from plr_get_raw(logistic_graph()) as get_image;
-
-
----------- DO NOT USE, this was for testing and experimentation
-
-CREATE OR REPLACE FUNCTION image_me()
-    RETURNS bytea as $$
-    require( 'RPostgreSQL')
-
-# https://cran.r-project.org/web/packages/RPostgreSQL/RPostgreSQL.pdf
-pg = dbDriver("PostgreSQL")
-con = dbConnect(pg, user="postgres", password="password",
-                host="localhost", port=5432, dbname="fire")
-
-query_statement <- paste("select hasfire, date_time, cs_precip, cs_air_max_temp,",
-                                       "cs_air_min_temp, cs_soil_max_temp, cs_soil_min_temp, cs_solar, cs_eto, cs_rh_max, cs_rh_min, hasfire",
-                                       "from final.analysis")
-df <- dbGetQuery(con, query_statement)
-
-logmodel_solar <- glm(hasfire ~ cs_rh_min + cs_air_max_temp + cs_precip + cs_solar, data=df, family = binomial("logit"))
-
-# Write plot to file, get bytes, put in DB, and then delete it
-# Set up the PNG and write to disk
-thefile <- "/tmp/deleteme.png"
-png(filename = thefile)
-plot(logmodel_solar)
-dev.off()
-
-## read it back from disc to a binary
-binary_png <- paste(readBin(thefile, what = "raw", n = 1e8))
-
-## delete the image
-file.remove(thefile)
-
-
-## return the bytes
- return(binary_png)
-$$ LANGUAGE 'plr';
