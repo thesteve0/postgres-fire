@@ -42,7 +42,7 @@ $$ LANGUAGE plpgsql;
 create table final.test as select * from final.analysis;
 
 -- Now do the transformation
-select final.initial_center_standardize('final'::text, 'analysis'::text, 'cs_'::text,
+select final.initial_center_standardize('final'::text, 'test'::text, 'cs_'::text,
     array ['precip','air_max_temp','air_min_temp','soil_max_temp','soil_min_temp','solar','eto','rh_max','rh_min']::text[], 'id'::text);
 
 
