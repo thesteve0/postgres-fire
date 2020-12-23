@@ -18,13 +18,8 @@ CREATE OR REPLACE FUNCTION final.logistic_model()
                                                "cs_air_min_temp, cs_soil_max_temp, cs_soil_min_temp, cs_solar, cs_eto, cs_rh_max, cs_rh_min",
                                                "from final.analysis"))
 
-        ###############################
-        # This model is better behaved but we should compare them for prediction
 
         logmodel_solar <- glm(hasfire ~ cs_rh_min + cs_air_max_temp + cs_precip + cs_solar, data=df, family = binomial("logit"))
-
-        # I am going to return the binary representation
-        # serial_results <- serialize(logmodel_solar, NULL)
 
         dbDisconnect(con)
         dbUnloadDriver(pg)
