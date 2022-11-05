@@ -39,8 +39,8 @@ $$ LANGUAGE 'plr';
 
 -- if I changed the select query in the newdata query so it returned  multiple columns rather than * , postgresql would complain that a subquery can only return 1 column.
 -- Now I am not sure why that is the case that a subquery can only return one column, so if anyone wants to enlighten me I would be all ears
--- But now I understand that *::table  casts the result to a record from the table
--- If I had wanted to return multiples columns I would either have to my function signature to take each of the columns OR I could make a composite type that was just the columns I wanted and then put that in the function signature
+-- A *::table  casts the result to a record from the table
+-- To return multiples columns I would either have to change my function signature to take each of the columns OR I could make a composite type that was just the columns I wanted and then put that in the function signature
 
 select final.predict_logistic(newdata :=
     (select f.*::final.test  from final.test as f order by f.date_time limit 1),
